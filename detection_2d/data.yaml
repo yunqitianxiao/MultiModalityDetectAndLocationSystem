@@ -1,0 +1,8 @@
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: 断裂
+  1: 丢失
+  2: 松动歪斜
+nc: 3

@@ -1,0 +1,9 @@
+# 土建3类 cut-paste 数据集 (真实正常背景+病集缺陷贴图, 整墙多缺陷; test=病集留测真图零重叠)
+path: .
+train: images/train
+val: images/val
+names:
+  0: 裂缝
+  1: 渗漏水
+  2: 管片掉块
+test: images/test

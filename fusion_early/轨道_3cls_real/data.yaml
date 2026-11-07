@@ -1,0 +1,9 @@
+# 轨道3类 真实数据 (RFDD单扣特写+赛方病集全幅; test=病集留测真图零重叠)
+path: .
+train: images/train
+val: images/val
+names:
+  0: 断裂
+  1: 丢失
+  2: 松动歪斜
+test: images/test

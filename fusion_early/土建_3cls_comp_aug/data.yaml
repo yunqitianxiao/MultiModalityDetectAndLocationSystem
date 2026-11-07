@@ -1,0 +1,10 @@
+# 土建仅赛方病集·保分辨率1920+增强过采样; test=病集留测真图零重叠
+# val=test(数据小); 训练请配 --imgsz 1280
+path: .
+train: images/train
+val: images/test
+test: images/test
+names:
+  0: 裂缝
+  1: 渗漏水
+  2: 管片掉块

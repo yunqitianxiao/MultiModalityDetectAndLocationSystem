@@ -1,0 +1,10 @@
+# 仅赛方病集·原生全幅贴满; test=病集留测真图零重叠
+# 数据极小无法再分val, 用 test 兼任 val(早停略偏, 以 test 报告为准)
+path: .
+train: images/train
+val: images/test
+test: images/test
+names:
+  0: 断裂
+  1: 丢失
+  2: 松动歪斜

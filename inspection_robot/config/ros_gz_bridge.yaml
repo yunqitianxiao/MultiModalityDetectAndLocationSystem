@@ -1,0 +1,72 @@
+# ros_gz_bridge 桥接配置
+# 将 Gazebo Harmonic 的 gz 话题 <-> ROS2 话题 一一对应。
+# 使用方式(launch 已自动加载):
+#   ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=<本文件>
+#
+# 方向约定:
+#   ROS_TO_GZ : ROS 话题 -> gz 话题 (如 Twist 遥控)
+#   GZ_TO_ROS : gz 话题  -> ROS 话题 (如传感器数据)
+
+# ---------- 差速驱动: Twist 遥控 (ROS -> GZ) ----------
+# gz DiffDrive 用默认话题 /model/inspection_robot/cmd_vel(模型名=inspection_robot)
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/model/inspection_robot/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: "ROS_TO_GZ"
+
+# ---------- 里程计 (GZ -> ROS) ----------
+# gz DiffDrive 发布默认话题 /model/inspection_robot/odometry
+- ros_topic_name: "/odom"
+  gz_topic_name: "/model/inspection_robot/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: "GZ_TO_ROS"
+
+# ---------- RGB 相机 (GZ -> ROS) ----------
+- ros_topic_name: "/camera/image_raw"
+  gz_topic_name: "/camera"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: "GZ_TO_ROS"
+
+- ros_topic_name: "/camera/camera_info"
+  gz_topic_name: "/camera/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: "GZ_TO_ROS"
+
+# ---------- IMU (GZ -> ROS) ----------
+- ros_topic_name: "/imu"
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: "GZ_TO_ROS"
+
+# ---------- 16线激光雷达点云 (GZ -> ROS) ----------
+# gz lidar 传感器输出两个话题:
+#   <topic>           -> LaserScan(2D)
+#   <topic>/points    -> PointCloudPacked(16线点云)  ← 桥接这个
+- ros_topic_name: "/lidar/points"
+  gz_topic_name: "/lidar/points/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: "GZ_TO_ROS"
+
+# ---------- 2D 激光扫描 /scan (Nav2 用) ----------
+# gz gpu_lidar 在 <topic>(=gz /lidar/points) 同时输出 2D LaserScan, 桥到 ROS /scan 供 Nav2。
+# 若该 gz LaserScan topic 未出现, 改用 pointcloud_to_laserscan 把 /lidar/points(PointCloud2) 转 /scan。
+- ros_topic_name: "/scan"
+  gz_topic_name: "/lidar/points"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: "GZ_TO_ROS"
+
+# ---------- 仿真时钟 (GZ -> ROS) ----------
+# 录制/控制节点用 use_sim_time:=true 时依赖 ROS /clock,
+# 必须桥接 gz 时钟, 否则 get_clock().now() 与传感器 sim 时间戳跨时钟域不同步。
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: "GZ_TO_ROS"

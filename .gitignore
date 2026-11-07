@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ROS 2 / Gazebo build artifacts
+build/
+install/
+log/
+
+# Training outputs, checkpoints and datasets
+runs/
+weights/*.pt
+weights/*.pth
+weights/*.onnx
+weights/*.engine
+weights/*.safetensors
+data/*
+!data/README.md
+
+# Local logs and generated media
+*.log
+*.mp4
+*.bag

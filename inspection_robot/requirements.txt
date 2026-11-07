@@ -1,0 +1,22 @@
+# 巡检小车项目 · Python 依赖 (安装在 .venv)
+# 用法: .venv/bin/pip install -r requirements.txt
+#
+# 注意:
+#   - ROS2 Humble 的包(rclpy/sensor_msgs/tf2_ros 等)不在 venv 里,
+#     靠 `source /opt/ros/humble/setup.bash` 的 PYTHONPATH 注入(见 scripts/activate.sh)。
+#   - torch 装的是 PyPI CUDA 版(自带 CUDA runtime, 需 NVIDIA 驱动>=525)。
+#   - 数据生成管线(run_data_gen.sh)仍用系统 python 跑, 避免 numpy 2 与 ROS ABI 冲突;
+#     venv 用于训练/脚本开发。如需 venv 跑管线, 先验证 numpy 兼容性。
+
+# --- 科学计算 ---
+numpy==2.2.6          # 已锁定
+scipy==1.15.3         # 属性图最近邻补密(fill_nearest)
+opencv-python==5.0.0  # 图像读写/贴图裁剪 (cv2.__version__=5.0.0)
+
+# --- 深度学习 (本机 RTX 4060) ---
+torch==2.13.0         # 位姿编码器 pose_mlp / train_pose_encoder.py
+                      # (PyPI 装的是 CUDA 版 2.13.0+cu130, pip freeze 里的 +cu130
+                      #  是本地构建标签, 裸写 2.13.0 从默认源/PyPI 安装即得 CUDA 版)
+
+# --- 后续训练阶段再解注释 (图像检测分支, 建议在远程训练服务器装) ---
+# ultralytics>=8.2     # YOLO 图像检测

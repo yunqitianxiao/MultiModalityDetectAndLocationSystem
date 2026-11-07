@@ -1,0 +1,8 @@
+# 设备2类 cut-paste 数据集 (真实正常背景+病集缺陷贴图, 近景取景; test=病集留测真图零重叠)
+path: .
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: 异物入侵
+  1: 管线支架松脱

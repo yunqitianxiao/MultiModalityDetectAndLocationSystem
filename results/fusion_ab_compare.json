@@ -1,0 +1,62 @@
+[
+  {
+    "name": "图像单支 @ 融合val集",
+    "n_frames": 124,
+    "classes": {
+      "0": {
+        "n_gt": 664,
+        "n_det": 730,
+        "n_tp": 650,
+        "ap_voc11": 0.9091,
+        "ap_continuous": 0.978
+      }
+    },
+    "mAP_voc11": 0.9091,
+    "mAP_continuous": 0.978
+  },
+  {
+    "name": "图像单支 @ 单支val集",
+    "n_frames": 94,
+    "classes": {
+      "0": {
+        "n_gt": 544,
+        "n_det": 601,
+        "n_tp": 532,
+        "ap_voc11": 0.9091,
+        "ap_continuous": 0.9767
+      }
+    },
+    "mAP_voc11": 0.9091,
+    "mAP_continuous": 0.9767
+  },
+  {
+    "name": "融合 @ 融合val集",
+    "n_frames": 124,
+    "classes": {
+      "0": {
+        "n_gt": 664,
+        "n_det": 781,
+        "n_tp": 640,
+        "ap_voc11": 0.9051,
+        "ap_continuous": 0.9574
+      }
+    },
+    "mAP_voc11": 0.9051,
+    "mAP_continuous": 0.9574
+  },
+  {
+    "name": "无点云 @ 融合val集",
+    "n_frames": 124,
+    "classes": {
+      "0": {
+        "n_gt": 664,
+        "n_det": 799,
+        "n_tp": 639,
+        "ap_voc11": 0.9049,
+        "ap_continuous": 0.9558
+      }
+    },
+    "mAP_voc11": 0.9049,
+    "mAP_continuous": 0.9558
+  }
+]

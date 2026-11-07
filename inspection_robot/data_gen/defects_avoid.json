@@ -1,0 +1,23 @@
+{
+  "seed": 42,
+  "class_names": ["crack", "leakage", "rail_fastener_broken", "rail_fastener_missing", "rail_fastener_loose", "equip_intrusion", "spalling", "equip_bracket_loose"],
+  "class_ids": {"crack": 0, "leakage": 1, "rail_fastener_broken": 2, "rail_fastener_missing": 3, "rail_fastener_loose": 4, "equip_intrusion": 5, "spalling": 6, "equip_bracket_loose": 7},
+  "defects": [
+    {
+      "id": "equip_intrusion_01",
+      "class_id": 5,
+      "class_name": "equip_intrusion",
+      "surface": "ground",
+      "center_world": [3.0, 0.0, 0.33],
+      "size_m": [0.6, 0.6],
+      "side": "center",
+      "texture": "equip_intrusion_1.png",
+      "corners_world": [
+        [3.0, -0.3, 0.03],
+        [3.0, 0.3, 0.03],
+        [3.0, 0.3, 0.63],
+        [3.0, -0.3, 0.63]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,427 @@
+<?xml version="1.0"?>
+<!--
+  两轮差速巡检小车 URDF (xacro 参数化版)
+  ============================================================
+  用途: 隧道病害巡检仿真。后续接入:
+        1) FAST-LIO2 SLAM       -> 依赖 /lidar/points + /imu + /odom
+        2) 图像-点云多模态病害检测 -> 依赖 /camera/image_raw + /lidar/points
+        3) 相机-雷达-IMU 联合标定  -> 依赖下方传感器位姿参数, 全部集中在顶部可调
+
+  TF 树 (完整):
+    odom -> base_link  (动态, 由 odom_tf_broadcaster 节点发布)
+    base_link -> left_wheel / right_wheel / 4个万向轮
+    base_link -> camera_link / imu_link / lidar_link  (固定关节, robot_state_publisher 发布)
+
+  传感器约定:
+    camera_link 原点 = 相机光心, +x 朝前(与车体前进方向一致)
+    imu_link    原点 = IMU 安装位置
+    lidar_link  原点 = 雷达安装位置(顶部)
+  修改下方属性即可调整安装位姿 -> 用于相机-雷达-IMU 外参标定。
+-->
+<robot name="inspection_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ==================== ① 底盘参数 ==================== -->
+  <xacro:property name="chassis_length" value="0.45"/>
+  <xacro:property name="chassis_width"  value="0.35"/>
+  <xacro:property name="chassis_height" value="0.18"/>
+  <xacro:property name="chassis_mass"   value="8.0"/>
+
+  <!-- ==================== ② 驱动轮参数 (2个) ==================== -->
+  <xacro:property name="wheel_radius"     value="0.10"/>
+  <xacro:property name="wheel_width"      value="0.06"/>
+  <xacro:property name="wheel_separation" value="0.40"/>  <!-- 左右轮中心距, 与 DiffDrive 插件 wheel_separation 一致 -->
+  <xacro:property name="wheel_mass"       value="0.8"/>
+  <xacro:property name="wheel_z"          value="-0.10"/> <!-- 轮心相对 base_link 的 z 偏移; = -wheel_radius 使轮底缘贴地 z=0 -->
+  <!-- 注: 曾为 -0.08 导致轮底缘 z=0.02 悬空 2cm; 连同 caster_z 一起修正, 否则底盘在驱动轮轴上前后倾倒 ~22° (相机视角乱指, 用户见"低头") -->
+
+  <!-- ==================== ③ 被动万向轮参数 (2个, 对角布置) ==================== -->
+  <xacro:property name="caster_radius" value="0.04"/>
+  <xacro:property name="caster_mass"   value="0.2"/>
+  <xacro:property name="caster_x"      value="0.16"/>
+  <xacro:property name="caster_y"      value="0.0"/>
+  <!-- caster_y=0: 两万向轮置于车体中轴线上(经典 2 轮 + 前/后中轴万向轮)。
+       作用: 万向轮拖曳阻力经过 y=0, 不产生偏航力矩 → 消除恒定右偏(曾 ~6°,
+       且随 caster_x 前移加重; 曾 y=±0.13 对角布置产生持续右偏)。 -->
+  <xacro:property name="caster_z"      value="-0.16"/> <!-- = -caster_radius - 轮底修正(-0.10) 使万向轮底缘贴地 z=0; 曾为 -0.08 悬空 8cm 致底盘倾倒 -->
+  <!-- 几何校验: base_link 高 0.20 时, 驱动轮心 z=0.10 底缘 0, 万向轮心 z=0.04 底缘 0, 四轮着地水平 -->
+
+
+  <!-- ==================== ④ RGB 相机安装位姿 (联合标定改这里) ==================== -->
+  <xacro:property name="camera_x"    value="0.22"/>
+  <xacro:property name="camera_y"    value="0.0"/>
+  <xacro:property name="camera_z"    value="0.10"/>
+  <xacro:property name="camera_roll" value="0.0"/>
+  <xacro:property name="camera_pitch" value="0.0"/>
+  <xacro:property name="camera_yaw"  value="0.0"/>
+
+  <!-- ==================== ⑤ IMU 安装位姿 (联合标定改这里) ==================== -->
+  <xacro:property name="imu_x" value="0.0"/>
+  <xacro:property name="imu_y" value="0.0"/>
+  <xacro:property name="imu_z" value="0.02"/>
+
+  <!-- ==================== ⑥ 16线激光雷达安装位姿 (联合标定改这里) ==================== -->
+  <xacro:property name="lidar_x" value="0.0"/>
+  <xacro:property name="lidar_y" value="0.0"/>
+  <xacro:property name="lidar_z" value="0.30"/>
+
+  <!-- ==================== 材质 ==================== -->
+  <material name="chassis_mat"><color rgba="0.2 0.4 0.8 1.0"/></material>
+  <material name="wheel_mat"><color rgba="0.1 0.1 0.1 1.0"/></material>
+  <material name="camera_mat"><color rgba="0.9 0.9 0.1 1.0"/></material>
+  <material name="imu_mat"><color rgba="0.1 0.8 0.2 1.0"/></material>
+  <material name="lidar_mat"><color rgba="0.9 0.2 0.2 1.0"/></material>
+
+  <!-- ==================== base_link (底盘/根连杆) ==================== -->
+  <link name="base_link">
+    <inertial>
+      <mass value="${chassis_mass}"/>
+      <inertia ixx="0.10" iyy="0.16" izz="0.22" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+      <material name="chassis_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ==================== 左驱动轮 ==================== -->
+  <link name="left_wheel">
+    <inertial>
+      <mass value="${wheel_mass}"/>
+      <inertia ixx="0.0023" iyy="0.0023" izz="0.004" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel"/>
+    <origin xyz="0 ${wheel_separation/2} ${wheel_z}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="100" velocity="10"/>
+  </joint>
+
+  <!-- ==================== 右驱动轮 ==================== -->
+  <link name="right_wheel">
+    <inertial>
+      <mass value="${wheel_mass}"/>
+      <inertia ixx="0.0023" iyy="0.0023" izz="0.004" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel"/>
+    <origin xyz="0 -${wheel_separation/2} ${wheel_z}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="100" velocity="10"/>
+  </joint>
+
+  <!-- ==================== 被动万向轮 (swivel: 绕z转轴 + 滚轮绕y) ====================
+       历史:
+       - fixed 球形(fixed 关节): 球不能滚只能滑 → 高摩擦(mu=1)拖死车, 低摩擦
+         (0.05/0.3/0.5)无航向阻尼 → 直行蛇形跑偏撞墙(用户见 90° 偏转)。根因=滑动
+         摩擦耦合进航向。
+       - ball 关节: 理论正确, 但 sdformat/gz sdf -p 拒绝解析 ball 关节 URDF。
+       - swivel 转轴+滚轮(当前): 关节类型与驱动轮同为 continuous(可靠支持)。
+         滚轮离转轴 4cm 拖距, 前进时自然拖在轴后方 → 提供航向阻尼又不拖车。
+       caster_x 为正表示布置在车头方向(+x)。对角布置保证四轮着地稳定。
+       几何: 转轴枢轴在 base_z=-0.10; 滚轮中心 base_z=-0.16, 半径 0.04 → 底缘 z=0 贴地。 -->
+  <!-- 前左 swivel 万向轮 -->
+  <link name="caster_front_left_shaft">
+    <inertial>
+      <mass value="0.08"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.04"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+  </link>
+  <joint name="caster_front_left_swivel" type="continuous">
+    <parent link="base_link"/>
+    <child link="caster_front_left_shaft"/>
+    <origin xyz="${caster_x} ${caster_y} -0.10" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <!-- 转轴阻尼: 抑制出生落地/行驶时万向轮自由摆动(否则随机残留 ~5° 航向偏置) -->
+    <dynamics damping="0.3"/>
+  </joint>
+  <link name="caster_front_left_wheel">
+    <inertial>
+      <mass value="${caster_mass}"/>
+      <inertia ixx="0.0002" iyy="0.0002" izz="0.0002" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+    </collision>
+  </link>
+  <joint name="caster_front_left_wheel_joint" type="continuous">
+    <parent link="caster_front_left_shaft"/>
+    <child link="caster_front_left_wheel"/>
+    <origin xyz="0.04 0 -0.06" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- 后右 swivel 万向轮 -->
+  <link name="caster_rear_right_shaft">
+    <inertial>
+      <mass value="0.08"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.04"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+  </link>
+  <joint name="caster_rear_right_swivel" type="continuous">
+    <parent link="base_link"/>
+    <child link="caster_rear_right_shaft"/>
+    <origin xyz="-${caster_x} -${caster_y} -0.10" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <!-- 转轴阻尼: 抑制出生落地/行驶时万向轮自由摆动(否则随机残留 ~5° 航向偏置) -->
+    <dynamics damping="0.3"/>
+  </joint>
+  <link name="caster_rear_right_wheel">
+    <inertial>
+      <mass value="${caster_mass}"/>
+      <inertia ixx="0.0002" iyy="0.0002" izz="0.0002" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+      <material name="wheel_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+    </collision>
+  </link>
+  <joint name="caster_rear_right_wheel_joint" type="continuous">
+    <parent link="caster_rear_right_shaft"/>
+    <child link="caster_rear_right_wheel"/>
+    <origin xyz="0.04 0 -0.06" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- ==================== RGB 相机 ==================== -->
+  <link name="camera_link">
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.04 0.04"/></geometry>
+      <material name="camera_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.04 0.04"/></geometry>
+    </collision>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="${camera_x} ${camera_y} ${camera_z}"
+            rpy="${camera_roll} ${camera_pitch} ${camera_yaw}"/>
+  </joint>
+
+  <!-- ==================== IMU ==================== -->
+  <link name="imu_link">
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.04 0.04 0.02"/></geometry>
+      <material name="imu_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.04 0.04 0.02"/></geometry>
+    </collision>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="${imu_x} ${imu_y} ${imu_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ==================== 16线激光雷达 (顶部桅杆) ==================== -->
+  <link name="lidar_link">
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.07"/></geometry>
+      <material name="lidar_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.07"/></geometry>
+    </collision>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="${lidar_x} ${lidar_y} ${lidar_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ==================== Gazebo 插件区 ====================
+       说明:
+       - 传感器话题全部用绝对话题(以 / 开头), 与 ros_gz_bridge.yaml 一一对应。
+       - 相机/IMU/雷达 的 <sensor> 由世界级插件 gz-sim-sensors-system 统一管理
+         (在 worlds/inspection_tunnel.world 中声明), 因此这里不再写每个传感器的 <plugin>。
+       - 差速驱动 DiffDrive 是独立插件, 在此声明。
+       gz topic 命名:
+         DiffDrive      -> cmd_vel: /cmd_vel,  odom: /odom
+         CameraSensor   -> image: /camera,   camera_info: /camera/camera_info
+         Imu            -> /imu
+         LidarSensor    -> /lidar/points (PointCloudPacked)
+  -->
+
+  <!-- ==================== 摩擦表面 (2026-08-19 v3) ====================
+       历史:
+       1. 万向轮 mu=1.0(默认)+fixed 关节 → 车"粘"住动不了(轮空转, odom 积分车不动)。
+       2. fixed 关节 + mu=0.05/0.3/0.5 → 车能动但航向不稳: 直行蛇形跑偏撞墙
+          (IMU ±10~22° 摆动, 运动学 odom 却报 y=0 yaw=0), 相机/雷达随车体偏转
+          → 用户见"两画面同时偏 90°"。根因=固定球不能滚只能滑, 滑动摩擦耦合进航向。
+       3. ball 关节(当前)+ mu=0.3 → 球自由滚动(真球承), 滚动阻力低不拖车,
+          对侧滑提供约束, 航向稳定。
+       驱动轮 mu=1.0 保证抓地。
+       验证: 直行 15s vx=0.5, IMU yaw 波动应 <3°。 -->
+  <gazebo reference="left_wheel">
+    <collision name="left_wheel_collision">
+      <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+    </collision>
+  </gazebo>
+  <gazebo reference="right_wheel">
+    <collision name="right_wheel_collision">
+      <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+    </collision>
+  </gazebo>
+  <gazebo reference="caster_front_left_wheel">
+    <collision name="caster_front_left_wheel_collision">
+      <surface><friction><ode><mu>0.3</mu><mu2>0.3</mu2></ode></friction></surface>
+    </collision>
+  </gazebo>
+  <gazebo reference="caster_rear_right_wheel">
+    <collision name="caster_rear_right_wheel_collision">
+      <surface><friction><ode><mu>0.3</mu><mu2>0.3</mu2></ode></friction></surface>
+    </collision>
+  </gazebo>
+
+  <!-- 差速驱动
+       注意: 使用 gz-sim8 默认话题(不自定义 cmd_vel/odom_topic, 与示例 diff_drive.sdf 一致):
+         cmd_vel 订阅: /model/inspection_robot/cmd_vel
+         odom 发布:    /model/inspection_robot/odometry
+       这两个默认话题在 ros_gz_bridge.yaml 中桥接到 ROS /cmd_vel 与 /odom。
+       参数名是 <odom_publish_frequency>(不是 odom_publisher_frequency)。 -->
+  <gazebo>
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>${wheel_separation}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <odom_publish_frequency>20</odom_publish_frequency>
+      <max_linear_velocity>1.0</max_linear_velocity>
+      <max_angular_velocity>2.0</max_angular_velocity>
+      <linear_odometry_factor>1.0</linear_odometry_factor>
+    </plugin>
+  </gazebo>
+
+  <!-- RGB 相机 (固定关节, 装在前方) -->
+  <gazebo reference="camera_link">
+    <sensor type="camera" name="camera">
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <topic>/camera</topic>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>   <!-- 60° -->
+        <image>
+          <width>1280</width>
+          <height>720</height>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>50</far>
+        </clip>
+      </camera>
+      <!-- 相机由世界级 gz-sim-sensors-system 统一管理(Harmonic), 无需单独插件 -->
+    </sensor>
+  </gazebo>
+
+  <!-- IMU -->
+  <gazebo reference="imu_link">
+    <sensor type="imu" name="imu">
+      <always_on>1</always_on>
+      <update_rate>200</update_rate>
+      <topic>/imu</topic>
+      <!-- 注意: Harmonic 的 Sensors 系统不处理 imu 类型, imu 需要单独的 imu-system 插件 -->
+      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"></plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- 16线激光雷达 (顶部, 360°水平 / 30°垂直 / 16线)
+       注意: Harmonic 不支持普通 lidar 传感器(gz日志: "Sensor type LIDAR not supported yet"),
+       必须用 gpu_lidar(GpuLidarSensor, 基于渲染引擎) -->
+  <gazebo reference="lidar_link">
+    <sensor type="gpu_lidar" name="lidar">
+      <always_on>1</always_on>
+      <update_rate>10</update_rate>
+      <topic>/lidar/points</topic>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>1800</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>16</samples>
+            <resolution>1</resolution>
+            <min_angle>-0.261799</min_angle>   <!-- -15° -->
+            <max_angle>0.261799</max_angle>    <!-- +15° -->
+          </vertical>
+        </scan>
+        <range>
+          <min>0.2</min>
+          <max>50</max>
+        </range>
+      </lidar>
+      <!-- 激光雷达由世界级 gz-sim-sensors-system 统一管理(Harmonic), 无需单独插件 -->
+    </sensor>
+  </gazebo>
+
+</robot>

@@ -1,0 +1,6 @@
+path: .
+train: images/train
+val: images/val
+test: images/test
+nc: 2
+names: {0: '支架正常', 1: '支架松脱'}
